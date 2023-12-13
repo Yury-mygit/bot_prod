@@ -46,3 +46,7 @@ exports.paymentOptions = [
 //         // If there's an error or timeout, keep the default paymentOptions
 //     }
 // }
+// start - Начать работу с ботом
+// pay - Оплатить занятия
+// about - Узнать о нас
+// terms - Правила использования

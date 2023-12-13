@@ -41,7 +41,7 @@ app.post(`/bot${botToken}`, (0, grammy_2.webhookCallback)(exports.bot, 'express'
 app.listen(localPort, () => {
     console.log(`Server is running on port ${localPort}`);
     // Check if the webhook needs to be set or updated
-    // checkAndSetWebhook();
+    checkAndSetWebhook();
 });
 app.use('/user', user_routers_1.default);
 const swaggerOptions = {
@@ -69,35 +69,40 @@ const swaggerOptions = {
 const swaggerDocs = (0, swagger_jsdoc_1.default)(swaggerOptions);
 app.use('/api-docs', swagger_ui_express_1.default.serve, swagger_ui_express_1.default.setup(swaggerDocs));
 // webhook ==========================================================
-//
-// async function checkAndSetWebhook() {
-//     try {
-//         const currentWebhookInfo = await bot.api.getWebhookInfo();
-//         if (currentWebhookInfo.url !== `${webhookUrl}/bot${botToken}`) {
-//             console.log('Setting webhook...');
-//             await bot.api.setWebhook(`${webhookUrl}/bot${botToken}`);
-//             console.log('Webhook set successfully');
-//         } else {
-//             console.log('Webhook is already set to the correct URL.');
-//         }
-//     } catch (error) {
-//         handleWebhookError(error);
-//     }
-// }
-//
-// function handleWebhookError(error:any) {
-//     if (error instanceof GrammyError && error.error_code === 429) {
-//         const retryAfter = error.parameters?.retry_after;
-//         if (typeof retryAfter === 'number') {
-//             console.log(`Retrying to set webhook after ${retryAfter} seconds`);
-//             setTimeout(checkAndSetWebhook, retryAfter * 1000);
-//         } else {
-//             console.error('Failed to set webhook due to rate limiting, but no retry_after provided.');
-//         }
-//     } else {
-//         console.error('Failed to set webhook:', error);
-//     }
-// }
+function checkAndSetWebhook() {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const currentWebhookInfo = yield exports.bot.api.getWebhookInfo();
+            if (currentWebhookInfo.url !== `${webhookUrl}/bot${botToken}`) {
+                console.log('Setting webhook...');
+                yield exports.bot.api.setWebhook(`${webhookUrl}/bot${botToken}`);
+                console.log('Webhook set successfully');
+            }
+            else {
+                console.log('Webhook is already set to the correct URL.');
+            }
+        }
+        catch (error) {
+            handleWebhookError(error);
+        }
+    });
+}
+function handleWebhookError(error) {
+    var _a;
+    if (error instanceof grammy_1.GrammyError && error.error_code === 429) {
+        const retryAfter = (_a = error.parameters) === null || _a === void 0 ? void 0 : _a.retry_after;
+        if (typeof retryAfter === 'number') {
+            console.log(`Retrying to set webhook after ${retryAfter} seconds`);
+            setTimeout(checkAndSetWebhook, retryAfter * 1000);
+        }
+        else {
+            console.error('Failed to set webhook due to rate limiting, but no retry_after provided.');
+        }
+    }
+    else {
+        console.error('Failed to set webhook:', error);
+    }
+}
 //^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 // bot.api.setWebhook(`${webhookUrl}/bot${process.env.BOT_TOKEN}`);
 exports.bot.api.setMyCommands(desc_1.userCommands); // Default to user commands
@@ -220,4 +225,4 @@ exports.bot.catch((err) => {
         console.error("Unknown error:", e);
     }
 });
-exports.bot.start(); // for polling uncomment
+// bot.start(); // for polling uncomment
