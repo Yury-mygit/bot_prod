@@ -18,6 +18,7 @@ exports.userCommands = [
     { command: 'start', description: 'Начать работу с ботом' },
     { command: 'pay', description: 'Оплатить занятия' },
     { command: 'about', description: 'Узнать о нас' },
+    { command: 'terms', description: 'Правила использования' }
 ];
 exports.paymentOptions = [
     { label: '1 занятие', amount: 110000, type: 'office' },
@@ -45,3 +46,7 @@ exports.paymentOptions = [
 //         // If there's an error or timeout, keep the default paymentOptions
 //     }
 // }
+// start - Начать работу с ботом
+// pay - Оплатить занятия
+// about - Узнать о нас
+// terms - Правила использования
