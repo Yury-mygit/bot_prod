@@ -7,12 +7,12 @@ const express_1 = __importDefault(require("express"));
 const user_validator_1 = __importDefault(require("../validator/user_validator"));
 const user_controller_1 = __importDefault(require("../controller/user_controller"));
 const user_routers = express_1.default.Router();
-user_routers.post('/notification', ...user_validator_1.default.notification(), user_controller_1.default.getAllPays_v2);
+user_routers.post('/pay/reminder', ...user_validator_1.default.notification(), user_controller_1.default.pay_reminder);
 exports.default = user_routers;
 /**
  * @openapi
  * paths:
- *   /user/notification:
+ *   /user/pay/reminder:
  *     post:
  *       tags:
  *         - Payment
@@ -28,11 +28,11 @@ exports.default = user_routers;
  *                 telegram_id:
  *                   type: integer
  *                   description: The ID of the student to update
- *                   default: 1
+ *                   default: 565047052
  *                 note:
  *                   type: string
  *                   description: skip
- *                   default: 0
+ *                   default: Пожалуйса, не забудте оплатить занятие
  *                required:
  *                 - telegram_id
  *                 - note

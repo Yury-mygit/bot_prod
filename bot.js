@@ -17,107 +17,33 @@ const grammy_1 = require("grammy");
 const dotenv_1 = require("dotenv");
 const desc_1 = require("./desc");
 const express_1 = __importDefault(require("express"));
-const grammy_2 = require("grammy");
-const swagger_jsdoc_1 = __importDefault(require("swagger-jsdoc"));
-const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
-const cors_1 = __importDefault(require("cors"));
-const cookieParser = require('cookie-parser');
+const swagger_setup_1 = require("./setup/swagger/swagger_setup");
+const express_setup_1 = require("./setup/express/express_setup");
 (0, dotenv_1.config)(); // Load environment variables from .env file
 const user_routers_1 = __importDefault(require("./user/router/user_routers"));
-const localPort = process.env.PORT; // The local port you are forwarding with ngrok
-const webhookUrl = process.env.WEBHOOKURL;
+const mode = process.env.MODE || 'POLLING';
+const localPort = process.env.PORT || '4000';
+const webhookUrl = process.env.WEBHOOKURL || '';
 const botToken = process.env.BOT_TOKEN;
 const botProviderToken = process.env.PROVIDER_TOKEN;
+if (mode === 'WEBHOOK' && !webhookUrl) {
+    console.error('WEBHOOKURL is required when MODE is set to "WEBHOOK"');
+    process.exit(1);
+}
 exports.bot = new grammy_1.Bot(botToken);
 const app = (0, express_1.default)();
-app.use(express_1.default.json());
-app.use(cookieParser());
-app.use((0, cors_1.default)({
-    origin: ['http://localhost:3002', 'http://localhost:3000', 'https://ebbc-176-115-195-132.ngrok-free.app/']
-}));
-// Define a route that handles your bot updates
-app.post(`/bot${botToken}`, (0, grammy_2.webhookCallback)(exports.bot, 'express'));
-// Start the express server
-app.listen(localPort, () => {
-    console.log(`Server is running on port ${localPort}`);
-    // Check if the webhook needs to be set or updated
-    checkAndSetWebhook();
-});
+(0, express_setup_1.setupExpress)(app, exports.bot, botToken, localPort);
 app.use('/user', user_routers_1.default);
-const swaggerOptions = {
-    definition: {
-        openapi: '3.0.0',
-        info: {
-            title: 'My API',
-            version: '1.0.0',
-            description: 'A simple Express API',
-        },
-        servers: [
-            {
-                url: 'http://localhost:4001`',
-            },
-        ],
-        tags: [
-            { name: 'user' },
-        ],
-    },
-    apis: [
-        './src/routes/*.ts',
-        './src/user/router/user_routers.ts'
-    ], // files containing annotations as above
-};
-const swaggerDocs = (0, swagger_jsdoc_1.default)(swaggerOptions);
-app.use('/api-docs', swagger_ui_express_1.default.serve, swagger_ui_express_1.default.setup(swaggerDocs));
-// webhook ==========================================================
-function checkAndSetWebhook() {
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            const currentWebhookInfo = yield exports.bot.api.getWebhookInfo();
-            if (currentWebhookInfo.url !== `${webhookUrl}/bot${botToken}`) {
-                console.log('Setting webhook...');
-                yield exports.bot.api.setWebhook(`${webhookUrl}/bot${botToken}`);
-                console.log('Webhook set successfully');
-            }
-            else {
-                console.log('Webhook is already set to the correct URL.');
-            }
-        }
-        catch (error) {
-            handleWebhookError(error);
-        }
-    });
-}
-function handleWebhookError(error) {
-    var _a;
-    if (error instanceof grammy_1.GrammyError && error.error_code === 429) {
-        const retryAfter = (_a = error.parameters) === null || _a === void 0 ? void 0 : _a.retry_after;
-        if (typeof retryAfter === 'number') {
-            console.log(`Retrying to set webhook after ${retryAfter} seconds`);
-            setTimeout(checkAndSetWebhook, retryAfter * 1000);
-        }
-        else {
-            console.error('Failed to set webhook due to rate limiting, but no retry_after provided.');
-        }
-    }
-    else {
-        console.error('Failed to set webhook:', error);
-    }
-}
-//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-// bot.api.setWebhook(`${webhookUrl}/bot${process.env.BOT_TOKEN}`);
+(0, swagger_setup_1.setupSwagger)(app);
 exports.bot.api.setMyCommands(desc_1.userCommands); // Default to user commands
-exports.bot.api.setChatMenuButton({
-    menu_button: {
-        type: 'commands' // Set the menu button to display commands
-    }
-});
-//
 exports.bot.command('start', (ctx) => __awaiter(void 0, void 0, void 0, function* () {
     if (!ctx.from || !ctx.chat)
         return;
     let inlineKeyboard = new grammy_1.InlineKeyboard()
         // .webApp('Перети на сайт', 'https://goldenspeak.ru/')
         .text('Оплатить ✅', 'payCall').row()
+        // .text('Мои платежи' , 'pays')
+        // .text('Абонемент' , 'subscription').row()
         .text('О нас', "aboutCall") // Add 'About' button
         .text('Правила использования', "termsCall"); // Add 'Terms of Use' button
     yield ctx.reply('Для оплаты занятий нажмите, пожалуйста, "Оплатить ✅"', {
@@ -225,4 +151,45 @@ exports.bot.catch((err) => {
         console.error("Unknown error:", e);
     }
 });
-// bot.start(); // for polling uncomment
+function checkAndSetWebhook() {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const currentWebhookInfo = yield exports.bot.api.getWebhookInfo();
+            if (currentWebhookInfo.url !== `${webhookUrl}/bot${botToken}`) {
+                console.log('Setting webhook...');
+                yield exports.bot.api.setWebhook(`${webhookUrl}/bot${botToken}`);
+                console.log('Webhook set successfully');
+            }
+            else {
+                console.log('Webhook is already set to the correct URL.');
+            }
+        }
+        catch (error) {
+            handleWebhookError(error);
+        }
+    });
+}
+function handleWebhookError(error) {
+    var _a;
+    if (error instanceof grammy_1.GrammyError && error.error_code === 429) {
+        const retryAfter = (_a = error.parameters) === null || _a === void 0 ? void 0 : _a.retry_after;
+        if (typeof retryAfter === 'number') {
+            console.log(`Retrying to set webhook after ${retryAfter} seconds`);
+            setTimeout(checkAndSetWebhook, retryAfter * 1000);
+        }
+        else {
+            console.error('Failed to set webhook due to rate limiting, but no retry_after provided.');
+        }
+    }
+    else {
+        console.error('Failed to set webhook:', error);
+    }
+}
+if (mode === 'WEBHOOK') {
+    console.log("WEBHOOK on");
+    checkAndSetWebhook();
+}
+else {
+    exports.bot.start();
+    console.log("Polling is running");
+}

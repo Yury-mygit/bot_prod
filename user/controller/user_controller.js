@@ -12,15 +12,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const bot_1 = require("../../bot"); //grammy
 class Payment_Contriller {
     constructor() {
-        this.errorHandler = (err, res) => {
-            console.log(err);
-            if (err instanceof Error) {
-                res.status(500).json({ error: err.message });
-            }
-            else {
-                res.status(500).json({ error: 'An unknown error occurred' });
-            }
-        };
+        // errorHandler = (err: unknown, res: Response) =>{
+        //     console.log(err);
+        //     if (err instanceof Error) {
+        //         res.status(500).json({ error: err.message });
+        //     } else {
+        //         res.status(500).json({ error: 'An unknown error occurred' });
+        //     }
+        // }
         this.getAllPays_v2 = (req, res, next) => __awaiter(this, void 0, void 0, function* () {
             const { telegram_id, notes } = req.body;
             try {
@@ -33,6 +32,33 @@ class Payment_Contriller {
                 this.errorHandler(err, res);
             }
         });
+        this.pay_reminder = (req, res, next) => __awaiter(this, void 0, void 0, function* () {
+            const { telegram_id, note } = req.body;
+            try {
+                // Send a message to the user with the specified telegram_id
+                const messageResult = yield bot_1.bot.api.sendMessage(telegram_id, note);
+                // Respond with the result of the message sending operation
+                res.json({
+                    status: 'success',
+                    message: 'Message sent successfully.',
+                    data: messageResult
+                });
+            }
+            catch (err) {
+                // Call errorHandler to handle the error and respond accordingly
+                this.errorHandler(err, res);
+            }
+        });
+        // Define the errorHandler method
+        this.errorHandler = (err, res) => {
+            console.error('Error sending message:', err);
+            // Respond with error details
+            res.status(500).json({
+                status: 'error',
+                message: 'Failed to send message.',
+                error: err
+            });
+        };
         // this.createPay = this.createPay.bind(this);
     }
 }
