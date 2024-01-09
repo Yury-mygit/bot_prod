@@ -30,6 +30,6 @@ const swaggerOptions = {
 };
 const swaggerDocs = (0, swagger_jsdoc_1.default)(swaggerOptions);
 function setupSwagger(app) {
-    app.use('/api-docs', swagger_ui_express_1.default.serve, swagger_ui_express_1.default.setup(swaggerDocs));
+    app.use('/api.ts-docs', swagger_ui_express_1.default.serve, swagger_ui_express_1.default.setup(swaggerDocs));
 }
 exports.setupSwagger = setupSwagger;

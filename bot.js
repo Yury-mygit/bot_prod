@@ -17,8 +17,10 @@ const grammy_1 = require("grammy");
 const dotenv_1 = require("dotenv");
 const desc_1 = require("./desc");
 const express_1 = __importDefault(require("express"));
+const axios_1 = __importDefault(require("axios"));
 const swagger_setup_1 = require("./setup/swagger/swagger_setup");
 const express_setup_1 = require("./setup/express/express_setup");
+const Index_1 = __importDefault(require("./keyboard/Index"));
 (0, dotenv_1.config)(); // Load environment variables from .env file
 const user_routers_1 = __importDefault(require("./user/router/user_routers"));
 const mode = process.env.MODE || 'POLLING';
@@ -34,43 +36,58 @@ exports.bot = new grammy_1.Bot(botToken);
 const app = (0, express_1.default)();
 (0, express_setup_1.setupExpress)(app, exports.bot, botToken, localPort);
 app.use('/user', user_routers_1.default);
+exports.bot.use((0, grammy_1.session)({
+    initial: () => ({ appealState: null }),
+}));
+const adminIds = [565047052];
 (0, swagger_setup_1.setupSwagger)(app);
 exports.bot.api.setMyCommands(desc_1.userCommands); // Default to user commands
 exports.bot.command('start', (ctx) => __awaiter(void 0, void 0, void 0, function* () {
     if (!ctx.from || !ctx.chat)
         return;
-    let inlineKeyboard = new grammy_1.InlineKeyboard()
-        // .webApp('Перети на сайт', 'https://goldenspeak.ru/')
-        .text('Оплатить ✅', 'payCall').row()
-        // .text('Мои платежи' , 'pays')
-        // .text('Абонемент' , 'subscription').row()
-        .text('О нас', "aboutCall") // Add 'About' button
-        .text('Правила использования', "termsCall"); // Add 'Terms of Use' button
+    const userId = ctx.from.id;
+    console.log(`User ID: ${userId}`);
     yield ctx.reply('Для оплаты занятий нажмите, пожалуйста, "Оплатить ✅"', {
-        reply_markup: inlineKeyboard,
+        reply_markup: Index_1.default.main,
     });
 }));
-exports.bot.command('pay', (ctx) => __awaiter(void 0, void 0, void 0, function* () {
-    // Fetch payment options from the server or use default
-    // await fetchPaymentOptions();
-    const paymentKeyboard = new grammy_1.InlineKeyboard();
-    desc_1.paymentOptions.forEach((option, index) => {
-        paymentKeyboard.text(`▫${option.label} - ${option.amount / 100} руб.`, `pay_${index}`).row();
+// APPEAL
+function handleAppeal(ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        yield ctx.answerCallbackQuery();
+        yield ctx.reply('Please send the text of your appeal along with any photo or video.');
     });
-    yield ctx.reply('Выберите, пожалуйста, количество занятий:', {
-        reply_markup: paymentKeyboard,
-    });
+}
+exports.bot.on('message', (ctx, next) => __awaiter(void 0, void 0, void 0, function* () {
+    if (ctx.session.appealState === 'awaiting_input' && (ctx.message.text || ctx.message.photo || ctx.message.video)) {
+        for (const adminId of adminIds) {
+            yield ctx.forwardMessage(adminId);
+        }
+        ctx.session.appealState = 'received_input';
+        yield ctx.reply('Thank you for your appeal. What would you like to do next?', {
+            reply_markup: Index_1.default.main,
+        });
+        yield next();
+    }
+    yield next();
 }));
+exports.bot.callbackQuery('appeal', (ctx) => __awaiter(void 0, void 0, void 0, function* () {
+    yield ctx.answerCallbackQuery();
+    ctx.session.appealState = 'awaiting_input';
+    yield ctx.reply('Please send the text of your appeal along with any photo or video.');
+}));
+exports.bot.command('appeal', (ctx) => __awaiter(void 0, void 0, void 0, function* () {
+    ctx.session.appealState = 'awaiting_input';
+    yield ctx.reply('Please send the text of your appeal along with any photo or video.');
+}));
+// Appeal end
 exports.bot.command('about', (ctx) => __awaiter(void 0, void 0, void 0, function* () {
-    // await ctx.answerCallbackQuery(); // Acknowledge the callback query
     yield ctx.reply(desc_1.about); // Replace with actual information
 }));
 exports.bot.command('terms', (ctx) => __awaiter(void 0, void 0, void 0, function* () {
-    // await ctx.answerCallbackQuery(); // Acknowledge the callback query
     yield ctx.reply(desc_1.terms); // Replace with actual information
 }));
 exports.bot.callbackQuery('payCall', (ctx) => __awaiter(void 0, void 0, void 0, function* () {
-    // Acknowledge the callback query to stop the 'pay' button from blinking
     yield ctx.answerCallbackQuery();
     const paymentKeyboard = new grammy_1.InlineKeyboard();
     desc_1.paymentOptions.forEach((option, index) => {
@@ -80,16 +97,15 @@ exports.bot.callbackQuery('payCall', (ctx) => __awaiter(void 0, void 0, void 0, 
         reply_markup: paymentKeyboard,
     });
 }));
-exports.bot.callbackQuery('aboutCall', (ctx) => __awaiter(void 0, void 0, void 0, function* () {
-    console.log('callbackQuery');
-    yield ctx.answerCallbackQuery(); // Acknowledge the callback query
-    yield ctx.reply(desc_1.about); // Replace with actual information
+exports.bot.command('pay', (ctx) => __awaiter(void 0, void 0, void 0, function* () {
+    const paymentKeyboard = new grammy_1.InlineKeyboard();
+    desc_1.paymentOptions.forEach((option, index) => {
+        paymentKeyboard.text(`▫${option.label} - ${option.amount / 100} руб.`, `pay_${index}`).row();
+    });
+    yield ctx.reply('Выберите, пожалуйста, количество занятий:', {
+        reply_markup: paymentKeyboard,
+    });
 }));
-exports.bot.callbackQuery('termsCall', (ctx) => __awaiter(void 0, void 0, void 0, function* () {
-    yield ctx.answerCallbackQuery(); // Acknowledge the callback query
-    yield ctx.reply(desc_1.terms); // Replace with actual terms of use
-}));
-// Handle callback queries for payment options
 exports.bot.callbackQuery(/^pay_\d+$/, (ctx) => __awaiter(void 0, void 0, void 0, function* () {
     const optionIndex = parseInt(ctx.callbackQuery.data.split('_')[1]);
     const selectedOption = desc_1.paymentOptions[optionIndex];
@@ -97,23 +113,8 @@ exports.bot.callbackQuery(/^pay_\d+$/, (ctx) => __awaiter(void 0, void 0, void 0
         { label: selectedOption.label, amount: selectedOption.amount },
     ];
     yield ctx.answerCallbackQuery(); // Acknowledge the callback query
-    console.log(optionIndex);
-    yield ctx.replyWithInvoice('Оплата', // title
-    `Оплата ${optionIndex == 0 ? "занятия" : "занятий"}`, // description
-    'Custom-Payload', // payload
-    botProviderToken, // provider_token
-    'RUB', // currency
-    prices // prices
-    // Add other optional parameters if needed
-    );
+    yield ctx.replyWithInvoice('Оплата', `Оплата ${optionIndex == 0 ? "занятия" : "занятий"}`, 'Custom-Payload!!!!', botProviderToken, 'RUB', prices);
 }));
-// Handle graceful shutdown
-function handleShutdown(signal) {
-    console.log(`Received ${signal}. Bot is stopping...`);
-    exports.bot.stop()
-        .then(() => console.log('Bot has been stopped.'))
-        .catch((err) => console.error('Error stopping the bot:', err));
-}
 exports.bot.on('pre_checkout_query', (ctx) => __awaiter(void 0, void 0, void 0, function* () {
     // Perform validation checks here
     const isEverythingOk = true; // Replace with actual validation logic
@@ -124,18 +125,126 @@ exports.bot.on('pre_checkout_query', (ctx) => __awaiter(void 0, void 0, void 0, 
         yield ctx.answerPreCheckoutQuery(false, "An error message explaining the issue");
     }
 }));
-exports.bot.on('message:successful_payment', (ctx) => __awaiter(void 0, void 0, void 0, function* () {
+exports.bot.on('message', (ctx) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b, _c;
-    // Payment was successful
-    const paymentInfo = ctx.message.successful_payment;
-    console.log('Payment received:', paymentInfo);
-    // You can now deliver the service or product and send a confirmation message to the user
-    yield ctx.reply('Thank you for your purchase!');
-    // Send the payment details to the user with ID 733685428
-    const adminId = 733685428; // Telegram user ID of the person to notify
-    const paymentDetails = `Payment received from ${(_a = ctx.from) === null || _a === void 0 ? void 0 : _a.first_name} ${(_b = ctx.from) === null || _b === void 0 ? void 0 : _b.last_name} (@${(_c = ctx.from) === null || _c === void 0 ? void 0 : _c.username}):\nTotal amount: ${paymentInfo.total_amount / 100} ${paymentInfo.currency}\nInvoice payload: ${paymentInfo.invoice_payload}`;
-    yield ctx.api.sendMessage(adminId, paymentDetails);
+    // console.log('ctx.messag', ctx.message)
+    if ('successful_payment' in ctx.message) {
+        const paymentInfo = ctx.message.successful_payment;
+        if (!paymentInfo)
+            throw new Error("Info is undefined");
+        console.log('Payment received:', paymentInfo);
+        console.log('paymentInfo.invoice_payload:', paymentInfo.invoice_payload);
+        yield ctx.reply('Thank you for your purchase!');
+        const adminIds = [565047052, 733685428]; // Array of admin IDs
+        const paymentDetails = `Payment received from ${(_a = ctx.from) === null || _a === void 0 ? void 0 : _a.first_name} ${(_b = ctx.from) === null || _b === void 0 ? void 0 : _b.last_name} (@${(_c = ctx.from) === null || _c === void 0 ? void 0 : _c.username}):\nTotal amount: ${paymentInfo.total_amount / 100} ${paymentInfo.currency}\nInvoice payload: ${paymentInfo.invoice_payload}`;
+        for (const adminId of adminIds) {
+            try {
+                yield ctx.api.sendMessage(adminId, paymentDetails);
+            }
+            catch (e) {
+                console.log(`Failed to send message to admin with ID ${adminId}:`, e);
+            }
+        }
+        // Define the URL and the payload for the POST request
+        // const url = 'http://localhost:3002/payment/create';
+        // const payload = {
+        //     // user_id: ctx.from?.id,
+        //     telegram_id: ctx.from?.id, // Assuming you want to use the Telegram user ID
+        //     // product_id: paymentInfo.invoice_payload // Assuming the invoice_payload contains the product_id
+        //     product_id: 2 // Assuming the invoice_payload contains the product_id
+        // };
+        //
+        // // console.log('payload', payload)
+        // try {
+        //     const response = await axios.post(url, payload, {
+        //         headers: {
+        //             'Content-Type': 'application/json',
+        //             'accept': '*/*'
+        //         }
+        //     });
+        //     console.log('POST request result:', response.data);
+        // } catch (error:any) {
+        //     if (error.response) {
+        //         // The request was made and the server responded with a status code
+        //         // that falls out of the range of 2xx
+        //         console.error('Error data:', error.response.data);
+        //         console.error('Error status:', error.response.status);
+        //         console.error('Error headers:', error.response.headers);
+        //     } else if (error.request) {
+        //         // The request was made but no response was received
+        //         console.error('Error request:', error.request);
+        //     } else {
+        //         // Something happened in setting up the request that triggered an Error
+        //         console.error('Error message:', error.message);
+        //     }
+        //     console.error('Error config:', error.config);
+        // }
+    }
 }));
+exports.bot.callbackQuery('aboutCall', (ctx) => __awaiter(void 0, void 0, void 0, function* () {
+    console.log('callbackQuery');
+    yield ctx.answerCallbackQuery(); // Acknowledge the callback query
+    yield ctx.reply(desc_1.about); // Replace with actual information
+}));
+exports.bot.callbackQuery('termsCall', (ctx) => __awaiter(void 0, void 0, void 0, function* () {
+    yield ctx.answerCallbackQuery(); // Acknowledge the callback query
+    yield ctx.reply(desc_1.terms); // Replace with actual terms of use
+}));
+exports.bot.callbackQuery('payment_history', (ctx) => __awaiter(void 0, void 0, void 0, function* () {
+    const telegramID = ctx.from.id;
+    try {
+        // Send a POST request to the payment service
+        const response = yield axios_1.default.post('http://localhost:3002/payment/get_by_telegram_id', {
+            telegram_id: telegramID
+        });
+        // console.log(response.data)
+        // {
+        //     pay_id: 25,
+        //     user_id: 2,
+        //     user_name: 'Gabe',
+        //     product_name: 'subscription_4',
+        //     product_desc: 'Разовое занятие',
+        //     status: 'new',
+        //     spend: 0,
+        //     created: '2023-12-16T21:22:43.247Z'
+        // },
+        const pays = response.data; // Use the Pay interface here
+        let message = `${ctx.from.first_name}, ваши платежи:\n`;
+        pays.reverse().forEach((pay) => {
+            message += `Абонемент: ${pay.product_desc}, Status: ${pay.status}, Spend: ${pay.spend}\n`;
+            let date = new Date(pay.created);
+            console.log(date.getDate());
+        });
+        // Send the formatted message to the user
+        yield ctx.reply(message);
+    }
+    catch (error) {
+        console.error('Error fetching payments:', error);
+        yield ctx.reply('An error occurred while fetching your payments.');
+    }
+    yield ctx.answerCallbackQuery(); // Acknowledge the callback query
+}));
+// Handle callback queries for payment options
+// Handle graceful shutdown
+function handleShutdown(signal) {
+    console.log(`Received ${signal}. Bot is stopping...`);
+    exports.bot.stop()
+        .then(() => console.log('Bot has been stopped.'))
+        .catch((err) => console.error('Error stopping the bot:', err));
+}
+// curl -X 'POST' \
+//   'http://localhost:3002/payment/create' \
+//   -H 'accept: */*' \
+//   -H 'Content-Type: application/json' \
+//   -d '{
+//     "user_id": 2,
+//     "telegram_id": 565047052,
+//     "product_id": 2
+// }'
+// MIR: 2200000000000004, 2200000000000012, 2200000000000020
+// VISA: 4256000000000003, 4256000000000011, 4256000000000029
+// MASTERCARD: 5236000000000005, 5236000000000013, 5236000000000021
+// UNION_PAY: 6056000000000000, 6056000000000018, 6056000000000026
 // Catch and log bot errors
 exports.bot.catch((err) => {
     const ctx = err.ctx;

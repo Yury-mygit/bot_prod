@@ -27,7 +27,8 @@ exports.paymentOptions = [
     // { label: 'Индивидуальное занятие', amount: 110000 , type :'online'},
     // { label: 'Абонемент 4 занятия', amount: 410000 , type :'office'},
     // { label: 'Абонемент 8 занятий', amount: 760000 , type :'office'},
-    // { label: 'тестовый товар', amount: 1000 , type :'test'},
+    { label: 'тестовый товар 1', amount: 1500, type: 'test' },
+    { label: 'тестовый товар', amount: 2000, type: 'test' },
 ];
 // async function fetchPaymentOptions() {
 //     try {
