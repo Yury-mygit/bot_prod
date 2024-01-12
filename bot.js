@@ -21,8 +21,8 @@ const axios_1 = __importDefault(require("axios"));
 const swagger_setup_1 = require("./setup/swagger/swagger_setup");
 const express_setup_1 = require("./setup/express/express_setup");
 const Index_1 = __importDefault(require("./keyboard/Index"));
-(0, dotenv_1.config)(); // Load environment variables from .env file
 const user_routers_1 = __importDefault(require("./user/router/user_routers"));
+(0, dotenv_1.config)(); // Load environment variables from .env file
 const mode = process.env.MODE || 'POLLING';
 const localPort = process.env.PORT || '4000';
 const webhookUrl = process.env.WEBHOOKURL || '';
@@ -52,22 +52,74 @@ exports.bot.command('start', (ctx) => __awaiter(void 0, void 0, void 0, function
     });
 }));
 // APPEAL
-function handleAppeal(ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        yield ctx.answerCallbackQuery();
-        yield ctx.reply('Please send the text of your appeal along with any photo or video.');
-    });
-}
 exports.bot.on('message', (ctx, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b, _c, _d;
     if (ctx.session.appealState === 'awaiting_input' && (ctx.message.text || ctx.message.photo || ctx.message.video)) {
         for (const adminId of adminIds) {
-            yield ctx.forwardMessage(adminId);
+            try {
+                yield ctx.forwardMessage(adminId);
+            }
+            catch (error) {
+                console.error(`Failed to forward message to admin with ID ${adminId}:`, error);
+                // Optionally, send an error notification to the user or take other actions
+            }
         }
         ctx.session.appealState = 'received_input';
         yield ctx.reply('Thank you for your appeal. What would you like to do next?', {
             reply_markup: Index_1.default.main,
         });
-        yield next();
+    }
+    if ('successful_payment' in ctx.message) {
+        const paymentInfo = ctx.message.successful_payment;
+        if (!paymentInfo)
+            throw new Error("Info is undefined");
+        console.log('Payment received:', paymentInfo);
+        // console.log('paymentInfo.invoice_payload:', paymentInfo.invoice_payload);
+        yield ctx.reply('Спасибо за покупку!');
+        const adminIds = [565047052, 733685428]; // Array of admin IDs
+        const paymentDetails = `Получена оплата от ${(_a = ctx.from) === null || _a === void 0 ? void 0 : _a.first_name} ${(_b = ctx.from) === null || _b === void 0 ? void 0 : _b.last_name} (ID: ${(_c = ctx.from) === null || _c === void 0 ? void 0 : _c.id}) (@${(_d = ctx.from) === null || _d === void 0 ? void 0 : _d.username}):\nTotal amount: ${paymentInfo.total_amount / 100} ${paymentInfo.currency}\nInvoice payload: ${paymentInfo.invoice_payload}`;
+        for (const adminId of adminIds) {
+            try {
+                yield ctx.api.sendMessage(adminId, paymentDetails);
+            }
+            catch (e) {
+                console.log(`Failed to send message to admin with ID ${adminId}:`, e);
+            }
+        }
+        // Define the URL and the payload for the POST request
+        // const url = 'http://localhost:3002/payment/create';
+        // const payload = {
+        //     // user_id: ctx.from?.id,
+        //     telegram_id: ctx.from?.id, // Assuming you want to use the Telegram user ID
+        //     // product_id: paymentInfo.invoice_payload // Assuming the invoice_payload contains the product_id
+        //     product_id: 2 // Assuming the invoice_payload contains the product_id
+        // };
+        //
+        // // console.log('payload', payload)
+        // try {
+        //     const response = await axios.post(url, payload, {
+        //         headers: {
+        //             'Content-Type': 'application/json',
+        //             'accept': '*/*'
+        //         }
+        //     });
+        //     console.log('POST request result:', response.data);
+        // } catch (error:any) {
+        //     if (error.response) {
+        //         // The request was made and the server responded with a status code
+        //         // that falls out of the range of 2xx
+        //         console.error('Error data:', error.response.data);
+        //         console.error('Error status:', error.response.status);
+        //         console.error('Error headers:', error.response.headers);
+        //     } else if (error.request) {
+        //         // The request was made but no response was received
+        //         console.error('Error request:', error.request);
+        //     } else {
+        //         // Something happened in setting up the request that triggered an Error
+        //         console.error('Error message:', error.message);
+        //     }
+        //     console.error('Error config:', error.config);
+        // }
     }
     yield next();
 }));
@@ -113,7 +165,7 @@ exports.bot.callbackQuery(/^pay_\d+$/, (ctx) => __awaiter(void 0, void 0, void 0
         { label: selectedOption.label, amount: selectedOption.amount },
     ];
     yield ctx.answerCallbackQuery(); // Acknowledge the callback query
-    yield ctx.replyWithInvoice('Оплата', `Оплата ${optionIndex == 0 ? "занятия" : "занятий"}`, 'Custom-Payload!!!!', botProviderToken, 'RUB', prices);
+    yield ctx.replyWithInvoice('Оплата', `Оплата ${optionIndex == 0 ? "занятия" : "занятий"}`, `Оплата за ${optionIndex == 0 ? "1 занятия" : selectedOption.label}`, botProviderToken, 'RUB', prices);
 }));
 exports.bot.on('pre_checkout_query', (ctx) => __awaiter(void 0, void 0, void 0, function* () {
     // Perform validation checks here
@@ -123,62 +175,6 @@ exports.bot.on('pre_checkout_query', (ctx) => __awaiter(void 0, void 0, void 0, 
     }
     else {
         yield ctx.answerPreCheckoutQuery(false, "An error message explaining the issue");
-    }
-}));
-exports.bot.on('message', (ctx) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c;
-    // console.log('ctx.messag', ctx.message)
-    if ('successful_payment' in ctx.message) {
-        const paymentInfo = ctx.message.successful_payment;
-        if (!paymentInfo)
-            throw new Error("Info is undefined");
-        console.log('Payment received:', paymentInfo);
-        console.log('paymentInfo.invoice_payload:', paymentInfo.invoice_payload);
-        yield ctx.reply('Thank you for your purchase!');
-        const adminIds = [565047052, 733685428]; // Array of admin IDs
-        const paymentDetails = `Payment received from ${(_a = ctx.from) === null || _a === void 0 ? void 0 : _a.first_name} ${(_b = ctx.from) === null || _b === void 0 ? void 0 : _b.last_name} (@${(_c = ctx.from) === null || _c === void 0 ? void 0 : _c.username}):\nTotal amount: ${paymentInfo.total_amount / 100} ${paymentInfo.currency}\nInvoice payload: ${paymentInfo.invoice_payload}`;
-        for (const adminId of adminIds) {
-            try {
-                yield ctx.api.sendMessage(adminId, paymentDetails);
-            }
-            catch (e) {
-                console.log(`Failed to send message to admin with ID ${adminId}:`, e);
-            }
-        }
-        // Define the URL and the payload for the POST request
-        // const url = 'http://localhost:3002/payment/create';
-        // const payload = {
-        //     // user_id: ctx.from?.id,
-        //     telegram_id: ctx.from?.id, // Assuming you want to use the Telegram user ID
-        //     // product_id: paymentInfo.invoice_payload // Assuming the invoice_payload contains the product_id
-        //     product_id: 2 // Assuming the invoice_payload contains the product_id
-        // };
-        //
-        // // console.log('payload', payload)
-        // try {
-        //     const response = await axios.post(url, payload, {
-        //         headers: {
-        //             'Content-Type': 'application/json',
-        //             'accept': '*/*'
-        //         }
-        //     });
-        //     console.log('POST request result:', response.data);
-        // } catch (error:any) {
-        //     if (error.response) {
-        //         // The request was made and the server responded with a status code
-        //         // that falls out of the range of 2xx
-        //         console.error('Error data:', error.response.data);
-        //         console.error('Error status:', error.response.status);
-        //         console.error('Error headers:', error.response.headers);
-        //     } else if (error.request) {
-        //         // The request was made but no response was received
-        //         console.error('Error request:', error.request);
-        //     } else {
-        //         // Something happened in setting up the request that triggered an Error
-        //         console.error('Error message:', error.message);
-        //     }
-        //     console.error('Error config:', error.config);
-        // }
     }
 }));
 exports.bot.callbackQuery('aboutCall', (ctx) => __awaiter(void 0, void 0, void 0, function* () {
@@ -213,7 +209,7 @@ exports.bot.callbackQuery('payment_history', (ctx) => __awaiter(void 0, void 0, 
         pays.reverse().forEach((pay) => {
             message += `Абонемент: ${pay.product_desc}, Status: ${pay.status}, Spend: ${pay.spend}\n`;
             let date = new Date(pay.created);
-            console.log(date.getDate());
+            // console.log(  date.getDate()  )
         });
         // Send the formatted message to the user
         yield ctx.reply(message);
@@ -224,7 +220,6 @@ exports.bot.callbackQuery('payment_history', (ctx) => __awaiter(void 0, void 0, 
     }
     yield ctx.answerCallbackQuery(); // Acknowledge the callback query
 }));
-// Handle callback queries for payment options
 // Handle graceful shutdown
 function handleShutdown(signal) {
     console.log(`Received ${signal}. Bot is stopping...`);
@@ -232,19 +227,6 @@ function handleShutdown(signal) {
         .then(() => console.log('Bot has been stopped.'))
         .catch((err) => console.error('Error stopping the bot:', err));
 }
-// curl -X 'POST' \
-//   'http://localhost:3002/payment/create' \
-//   -H 'accept: */*' \
-//   -H 'Content-Type: application/json' \
-//   -d '{
-//     "user_id": 2,
-//     "telegram_id": 565047052,
-//     "product_id": 2
-// }'
-// MIR: 2200000000000004, 2200000000000012, 2200000000000020
-// VISA: 4256000000000003, 4256000000000011, 4256000000000029
-// MASTERCARD: 5236000000000005, 5236000000000013, 5236000000000021
-// UNION_PAY: 6056000000000000, 6056000000000018, 6056000000000026
 // Catch and log bot errors
 exports.bot.catch((err) => {
     const ctx = err.ctx;
@@ -260,13 +242,17 @@ exports.bot.catch((err) => {
         console.error("Unknown error:", e);
     }
 });
-function checkAndSetWebhook() {
+// interface GrammyBot {
+//     bot: Bot<Context>; // Instance of the Bot class
+//     api: Api;          // Shortcut to the bot's Api instance
+// }
+function checkAndSetWebhook(bot) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const currentWebhookInfo = yield exports.bot.api.getWebhookInfo();
+            const currentWebhookInfo = yield bot.api.getWebhookInfo();
             if (currentWebhookInfo.url !== `${webhookUrl}/bot${botToken}`) {
                 console.log('Setting webhook...');
-                yield exports.bot.api.setWebhook(`${webhookUrl}/bot${botToken}`);
+                yield bot.api.setWebhook(`${webhookUrl}/bot${botToken}`);
                 console.log('Webhook set successfully');
             }
             else {
@@ -296,7 +282,7 @@ function handleWebhookError(error) {
 }
 if (mode === 'WEBHOOK') {
     console.log("WEBHOOK on");
-    checkAndSetWebhook();
+    checkAndSetWebhook(exports.bot);
 }
 else {
     exports.bot.start();
